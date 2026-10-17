@@ -5,6 +5,7 @@
 | Doc | Use it for |
 |---|---|
 | **This file** | What the app is, how it's built, how to run it, roles, data model, status |
+| [`REMAINING_WORK.md`](REMAINING_WORK.md) | **What's left**, in one up-to-date list: launch blockers, account setups, testing, code items |
 | [`NEXT_STEPS.md`](NEXT_STEPS.md) | Detailed setup steps per phase (auth, push, UPI…) and the running to-do list |
 | [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) | Play Store release, Data Safety, signing, launch-day runbook |
 | [`docs/not-required/REACT_NATIVE_PLAN.md`](../not-required/REACT_NATIVE_PLAN.md) + [`docs/not-required/phases/`](../not-required/phases/00_PHASES_OVERVIEW.md) | The original plan and phase specs. **The code and migrations are the source of truth** where they differ. |
@@ -22,7 +23,7 @@
 | **Payments** | Cash on delivery live. Razorpay UPI built but **off** until keys are added. |
 | **Delivery** | No rider app. Staff set "Out for delivery" / "Delivered" by hand. |
 | **Languages** | EN / MR / HI for UI and catalog content (`{en, mr, hi}` JSON). |
-| **Supabase project** | `tclflrlrzoyuaoswkpwb` (Mumbai). 14 of 16 migrations applied. **Pending:** `20261101120000_store_settings_pincodes_upi.sql` and `20261101121000_card_ratings.sql` (run `npx supabase db push`, then `npm run gen:types:cloud`). |
+| **Supabase project** | `tclflrlrzoyuaoswkpwb` (Mumbai). All 16 migrations applied (checked 2026-10-17). Run `npm run gen:types:cloud` to refresh app types. |
 
 ---
 
@@ -31,7 +32,7 @@
 ```
 nearkart/
   README.md               short intro + getting started (GitHub front page)
-  docs/required/          PROJECT_GUIDE.md (you are here) · NEXT_STEPS.md · RELEASE_CHECKLIST.md
+  docs/required/          PROJECT_GUIDE.md (you are here) · REMAINING_WORK.md · NEXT_STEPS.md · RELEASE_CHECKLIST.md
   docs/not-required/      original plan + phase specs (history; code is the source of truth)
   mobile/                 Expo app (customer + Store mode + Admin; web too)
     src/app/              routes (thin files only)

@@ -85,5 +85,5 @@ npm run lint && npm run typecheck && npm test
 ## Docs
 
 Docs:
-- **Start here:** [`docs/required/PROJECT_GUIDE.md`](docs/required/PROJECT_GUIDE.md), then [`NEXT_STEPS.md`](docs/required/NEXT_STEPS.md) and [`RELEASE_CHECKLIST.md`](docs/required/RELEASE_CHECKLIST.md).
+- **Start here:** [`docs/required/PROJECT_GUIDE.md`](docs/required/PROJECT_GUIDE.md), then [`REMAINING_WORK.md`](docs/required/REMAINING_WORK.md), [`NEXT_STEPS.md`](docs/required/NEXT_STEPS.md) and [`RELEASE_CHECKLIST.md`](docs/required/RELEASE_CHECKLIST.md).
 - **History only:** [`docs/not-required/`](docs/not-required/) holds the original plan and phase specs.

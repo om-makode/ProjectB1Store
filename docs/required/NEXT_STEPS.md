@@ -157,10 +157,12 @@ Phones: no new native modules in Phase 7. Photo upload uses expo-image-picker/ma
 
 ## Deferred work (not needed for a working app right now)
 
+> The current, complete to-do list is [`REMAINING_WORK.md`](REMAINING_WORK.md). Items below are kept for history; ✅ = done since.
+
 ### Needed before the matching phase ships
-- [ ] **Edge Functions** for Phase 10 not yet extracted into `supabase/functions/` (code is in the docs): `create-payment`, `verify-payment`, `razorpay-webhook`, `process-refunds`, `reconcile-payments`. (`send-push` is done.)
+- [x] ~~**Edge Functions** for Phase 10 not yet extracted into `supabase/functions/` (code is in the docs): `create-payment`, `verify-payment`, `razorpay-webhook`, `process-refunds`, `reconcile-payments`. (`send-push` is done.)~~ ✅ done: functions are in `supabase/functions/`
 - [ ] **`supabase/README.md`**: how to link, push, set secrets (`supabase secrets set`), deploy functions, configure Google + email (Brevo SMTP) auth, and the Vault secrets for push.
-- [ ] **Build the UI for Phase 10** (UPI payments). Phases 0–9 are done; the database for Phase 10 is already deployed.
+- [x] ~~**Build the UI for Phase 10** (UPI payments). Phases 0–9 are done; the database for Phase 10 is already deployed.~~ ✅ done: Phase 10 UI built, switched off until keys
 
 ### Quality / verification
 - [ ] **To place a test order (Phase 4)**: log in, save an address inside the delivery area, and make sure the store is open (`stores.opening_hours` / `is_accepting_orders`). If live cart sync between two devices doesn't work, check that Realtime in the dashboard allows private channels (the policy on `realtime.messages` is in the p4 migration).
@@ -173,7 +175,7 @@ Phones: no new native modules in Phase 7. Photo upload uses expo-image-picker/ma
 - [ ] Husky + lint-staged (pre-commit hooks) not added.
 
 - [ ] **Share-card image** (photo + price card for WhatsApp) needs `react-native-view-shot` and a rebuild; links + Open Graph previews from `web/` cover it for now.
-- [ ] Ratings on product cards: `catalog_product_cards` doesn't return `rating_avg/rating_count` (would need a migration).
+- [x] ~~Ratings on product cards: `catalog_product_cards` doesn't return `rating_avg/rating_count` (would need a migration).~~ ✅ done: migration `20261101121000_card_ratings.sql`
 
 ### Phase 9 leftovers
 - [ ] **Crash reporting**: no SDK bundled. To add Sentry: `npx expo install @sentry/react-native`, add its plugin + Metro wrapper, `Sentry.init` with `EXPO_PUBLIC_SENTRY_DSN`, then `setCrashReporter(...)` in `src/lib/crash.ts`. **Needs a rebuild.**
@@ -273,7 +275,7 @@ On the Android test phone, every call failed with `UnknownHostException: Unable 
 
 ⚠️ Razorpay charges about 2% per online payment (more on some cards). Refunds don't return the fee. Instant refunds (`speed: optimum`) cost extra; the code uses `normal`.
 
-## Round 1 fixes (2026-10-17): push 2 new migrations
+## Round 1 fixes (2026-10-17): 2 new migrations (✅ pushed)
 
 - **New migrations** (not on the Supabase project yet):
   - `20261101120000_store_settings_pincodes_upi.sql`: `admin_update_store_settings` now saves `serviceable_pincodes` (6-digit, deduped, ≤200), `upi_enabled`, `payment_hold_minutes` (5–60). Admin → Store settings has **Delivery pincodes** and **Online payments (UPI)** sections.
