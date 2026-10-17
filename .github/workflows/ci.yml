@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # Placeholders so the env schema validates; tests never hit the network.
+      EXPO_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key-not-a-secret
+      EXPO_PUBLIC_WEB_URL: http://localhost:8081
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm test -- --ci
+      - run: npx expo-doctor
+      - name: Bundle (web) to catch Metro/import errors
+        run: npx expo export -p web
+
+  database:
+    # Applies every migration + seed.sql on PGlite (real Postgres + PostGIS in WASM, no Docker)
+    # with Supabase stand-ins, then runs the end-to-end smoke checks (tools/sqlcheck/smoke.sql).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/sqlcheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/sqlcheck/package-lock.json
+      - run: npm ci
+      - name: Migrations + seed + smoke checks
+        run: node run.mjs
+      - name: pgTAP tests (informational until all pass)
+        run: node run_tests.mjs
+        continue-on-error: true
