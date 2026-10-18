@@ -12,10 +12,11 @@ export type PriceTagProps = {
   size?: 'sm' | 'md';
   /** The card already shows a discount ribbon. */
   hideDiscount?: boolean;
+  stacked?: boolean;
 };
 
 /** ₹price, with struck-through MRP and "12% OFF" only when there is a real discount. */
-export function PriceTag({ price, mrp, size = 'sm', hideDiscount }: PriceTagProps) {
+export function PriceTag({ price, mrp, size = 'sm', hideDiscount, stacked }: PriceTagProps) {
   const { t } = useTranslation();
   const pct = mrp ? discountPercent(price, mrp) : 0;
   const a11y = pct
@@ -26,18 +27,39 @@ export function PriceTag({ price, mrp, size = 'sm', hideDiscount }: PriceTagProp
     <View
       accessible
       accessibilityLabel={a11y}
-      style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: spacing.xs }}
+      style={
+        stacked
+          ? { justifyContent: 'center', gap: 1 }
+          : { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: spacing.xs }
+      }
     >
-      <Text variant={size === 'sm' ? 'body' : 'title'} weight="bold" testID="price">
+      <Text
+        variant={size === 'sm' ? 'body' : 'title'}
+        weight="bold"
+        numberOfLines={1}
+        testID="price"
+      >
         {formatPrice(price)}
       </Text>
       {pct > 0 ? (
         <>
-          <Text variant="caption" color="textMuted" strike testID="mrp">
+          <Text
+            variant="caption"
+            color="textMuted"
+            strike
+            numberOfLines={1}
+            testID="mrp"
+          >
             {formatPrice(mrp!)}
           </Text>
           {hideDiscount ? null : (
-            <Text variant="caption" weight="bold" color="discount" testID="discount">
+            <Text
+              variant="caption"
+              weight="bold"
+              color="discount"
+              numberOfLines={1}
+              testID="discount"
+            >
               {t('price.off', { percent: pct })}
             </Text>
           )}

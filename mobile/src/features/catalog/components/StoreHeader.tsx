@@ -45,7 +45,9 @@ export function StoreHeader({
   let detail = '';
   if (store) {
     if (store.is_open) {
-      headline = t('home.deliveryIn', { minutes: store.eta_minutes });
+      if (store.eta_minutes > 0) {
+        headline = t('home.deliveryIn', { minutes: store.eta_minutes });
+      }
     } else if (!store.accepting) {
       headline = t('store.paused');
     } else {
@@ -78,19 +80,25 @@ export function StoreHeader({
               </View>
             ) : store ? (
               <View accessible accessibilityRole="header">
-                <Text variant="caption" weight="bold" style={{ color: muted, letterSpacing: 0.4 }}>
+                <Text
+                  variant={headline ? 'caption' : 'title'}
+                  weight="bold"
+                  style={{ color: headline ? muted : fg, letterSpacing: headline ? 0.4 : 0 }}
+                >
                   {open ? t('home.greeting') : l(store.name)}
                 </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                  <MaterialCommunityIcons
-                    name={open ? 'lightning-bolt' : 'store-clock-outline'}
-                    size={open ? 26 : 24}
-                    color={fg}
-                  />
-                  <Text variant="h1" weight="bold" style={{ color: fg, flexShrink: 1 }}>
-                    {headline}
-                  </Text>
-                </View>
+                {headline ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                    <MaterialCommunityIcons
+                      name={open ? 'lightning-bolt' : 'store-clock-outline'}
+                      size={open ? 26 : 24}
+                      color={fg}
+                    />
+                    <Text variant="h1" weight="bold" style={{ color: fg, flexShrink: 1 }}>
+                      {headline}
+                    </Text>
+                  </View>
+                ) : null}
                 {detail ? (
                   <Text
                     variant="caption"
@@ -178,7 +186,7 @@ export function PromoStrip({ store }: { store: StoreStatus | null | undefined })
       label: t('home.freeDeliveryAbove', { amount: formatPrice(store.fees.free_delivery_above) }),
     });
   items.push({ icon: 'cash', label: t('home.codAvailable') });
-  if (store.is_open)
+  if (store.is_open && store.eta_minutes > 0)
     items.push({ icon: 'clock-fast', label: t('home.etaChip', { minutes: store.eta_minutes }) });
 
   return (

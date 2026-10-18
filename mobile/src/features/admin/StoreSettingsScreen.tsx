@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Alert, View } from 'react-native';
 
 import { useStoreId } from '@/features/store-ops/hooks';
 import { asLocalized, type LocalizedString } from '@/i18n/localize';
 import { toAppError } from '@/lib/errors';
+import { radius, spacing } from '@/theme/tokens';
+import { useTheme } from '@/theme/useTheme';
 import { Button, ErrorState, Skeleton, Text, TextField, showToast } from '@/ui';
 
 import { updateStoreSettings, type StoreRow } from './api';
@@ -47,13 +51,18 @@ type Form = {
   fssai_license: string;
   numbers: Record<NumberKey, number | null>;
   hours: Record<Day, string>;
+  is_24h: boolean;
   /** Delivery pincodes as typed: comma / space / newline separated. */
   pincodes: string;
   upi_enabled: boolean;
 };
 
+const DEFAULT_HOURS = '07:00-22:30';
+
 const fromRow = (s: StoreRow): Form => {
   const hours = (s.opening_hours ?? {}) as Partial<Record<Day, Range[]>>;
+  const hasHours = DAYS.some((d) => (hours[d] ?? []).length > 0);
+  const is_24h = !hasHours;
   return {
     name: asLocalized(s.name),
     address: asLocalized(s.address),
@@ -65,7 +74,10 @@ const fromRow = (s: StoreRow): Form => {
       NumberKey,
       number | null
     >,
-    hours: Object.fromEntries(DAYS.map((d) => [d, hoursToText(hours[d])])) as Record<Day, string>,
+    hours: Object.fromEntries(
+      DAYS.map((d) => [d, hoursToText(hours[d]) || (is_24h ? DEFAULT_HOURS : '')]),
+    ) as Record<Day, string>,
+    is_24h,
     pincodes: (s.serviceable_pincodes ?? []).join(', '),
     upi_enabled: !!s.upi_enabled,
   };
@@ -91,15 +103,28 @@ export function StoreSettingsScreen() {
       </AdminShell>
     );
   }
-  return <StoreSettingsForm storeId={storeId} initial={fromRow(q.data)} />;
+  return (
+    <StoreSettingsForm
+      key={`${storeId}-${q.data?.updated_at ?? 'initial'}`}
+      storeId={storeId}
+      initial={fromRow(q.data)}
+    />
+  );
 }
 
 function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: Form }) {
   const { t } = useTranslation();
+  const { colors } = useTheme();
   const refresh = useRefreshCatalog();
   const [form, setForm] = useState<Form>(initial);
+  const [savedForm, setSavedForm] = useState<Form>(initial);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const isDirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(savedForm),
+    [form, savedForm],
+  );
 
   const setNum = (k: NumberKey) => (v: number | null) =>
     setForm({ ...form, numbers: { ...form.numbers, [k]: v } });
@@ -107,23 +132,61 @@ function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: For
   const save = async () => {
     setErr(null);
     const opening_hours: Partial<Record<Day, Range[]>> = {};
-    const bad: string[] = [];
-    for (const d of DAYS) {
-      const r = textToHours(form.hours[d]);
-      if (r === null) bad.push(t(`admin.store.day_${d}`));
-      else opening_hours[d] = r;
+    if (!form.is_24h) {
+      const bad: string[] = [];
+      for (const d of DAYS) {
+        const r = textToHours(form.hours[d]);
+        if (r === null) bad.push(t(`admin.store.day_${d}`));
+        else opening_hours[d] = r;
+      }
+      if (bad.length) {
+        const msg = t('admin.store.errHours', { days: bad.join(', ') });
+        setErr(msg);
+        showToast(msg, 'danger');
+        Alert.alert(t('common.error', { defaultValue: 'Error' }), msg);
+        return;
+      }
     }
-    if (bad.length) return setErr(t('admin.store.errHours', { days: bad.join(', ') }));
     const missing = NUMBER_KEYS.filter((k) => form.numbers[k] === null);
-    if (missing.length)
-      return setErr(
-        t('admin.store.errNumbers', {
-          fields: missing.map((k) => t(`admin.store.${k}`)).join(', '),
-        }),
-      );
+    if (missing.length) {
+      const msg = t('admin.store.errNumbers', {
+        fields: missing.map((k) => t(`admin.store.${k}`)).join(', '),
+      });
+      setErr(msg);
+      showToast(msg, 'danger');
+      Alert.alert(t('common.error', { defaultValue: 'Error' }), msg);
+      return;
+    }
+    if (
+      form.numbers.max_open_orders_per_user !== null &&
+      (form.numbers.max_open_orders_per_user < 1 || form.numbers.max_open_orders_per_user > 10)
+    ) {
+      const msg = t('admin.store.errMaxOpenOrders', {
+        defaultValue: 'Open orders per customer must be 1–10',
+      });
+      setErr(msg);
+      showToast(msg, 'danger');
+      Alert.alert(t('common.error', { defaultValue: 'Error' }), msg);
+      return;
+    }
+    if (
+      form.numbers.eta_minutes !== null &&
+      (form.numbers.eta_minutes < 0 || form.numbers.eta_minutes > 240)
+    ) {
+      const msg = t('admin.store.errEta', { defaultValue: 'ETA must be 0–240 minutes' });
+      setErr(msg);
+      showToast(msg, 'danger');
+      Alert.alert(t('common.error', { defaultValue: 'Error' }), msg);
+      return;
+    }
     const pincodes = parsePincodes(form.pincodes);
-    if (pincodes.bad.length)
-      return setErr(t('admin.store.errPincodes', { codes: pincodes.bad.join(', ') }));
+    if (pincodes.bad.length) {
+      const msg = t('admin.store.errPincodes', { codes: pincodes.bad.join(', ') });
+      setErr(msg);
+      showToast(msg, 'danger');
+      Alert.alert(t('common.error', { defaultValue: 'Error' }), msg);
+      return;
+    }
     setBusy(true);
     try {
       const updated = (await updateStoreSettings(storeId, {
@@ -138,11 +201,16 @@ function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: For
         serviceable_pincodes: pincodes.ok,
         upi_enabled: form.upi_enabled,
       })) as unknown as StoreRow;
-      setForm(fromRow(updated));
+      const next = fromRow(updated);
+      setForm(next);
+      setSavedForm(next);
       refresh();
       showToast(t('admin.saved'), 'success');
     } catch (e) {
-      setErr(toAppError(e).message);
+      const msg = toAppError(e).message;
+      setErr(msg);
+      showToast(msg, 'danger');
+      Alert.alert(t('common.error', { defaultValue: 'Error' }), msg);
     } finally {
       setBusy(false);
     }
@@ -152,6 +220,7 @@ function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: For
     <AdminShell
       title={t('admin.nav.settings')}
       subtitle={t('admin.ui.settingsSubtitle')}
+      hasUnsavedChanges={isDirty}
       actions={
         <Button
           title={t('admin.save')}
@@ -205,18 +274,34 @@ function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: For
           <NumberField
             label={t('admin.store.max_open_orders_per_user')}
             hint="1–10"
+            integerOnly
+            error={
+              form.numbers.max_open_orders_per_user !== null &&
+              (form.numbers.max_open_orders_per_user < 1 ||
+                form.numbers.max_open_orders_per_user > 10)
+                ? t('admin.store.errMaxOpenOrders', { defaultValue: 'Must be 1–10' })
+                : null
+            }
             value={form.numbers.max_open_orders_per_user}
             onChange={setNum('max_open_orders_per_user')}
           />
           <NumberField
             label={t('admin.store.auto_cancel_minutes')}
             hint="2–60"
+            integerOnly
             value={form.numbers.auto_cancel_minutes}
             onChange={setNum('auto_cancel_minutes')}
           />
           <NumberField
             label={t('admin.store.eta_minutes')}
-            hint="5–240"
+            hint="0–240"
+            integerOnly
+            error={
+              form.numbers.eta_minutes !== null &&
+              (form.numbers.eta_minutes < 0 || form.numbers.eta_minutes > 240)
+                ? t('admin.store.errEta', { defaultValue: 'ETA must be 0–240 minutes' })
+                : null
+            }
             value={form.numbers.eta_minutes}
             onChange={setNum('eta_minutes')}
           />
@@ -255,28 +340,55 @@ function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: For
           <NumberField
             label={t('admin.store.payment_hold_minutes')}
             hint="5–60"
+            integerOnly
             value={form.numbers.payment_hold_minutes}
             onChange={setNum('payment_hold_minutes')}
           />
         </Grid>
       </Section>
       <Section icon="clock-outline" title={t('admin.store.hours')}>
-        <Text variant="caption" color="textMuted">
-          {t('admin.store.hoursHint')}
-        </Text>
-        <Grid cols={2}>
-          {DAYS.map((d) => (
-            <TextField
-              key={d}
-              label={t(`admin.store.day_${d}`)}
-              value={form.hours[d]}
-              placeholder="07:00-22:30"
-              error={textToHours(form.hours[d]) === null ? t('admin.store.badRange') : null}
-              hint={form.hours[d].trim() ? undefined : t('admin.store.closedDay')}
-              onChangeText={(s) => setForm({ ...form, hours: { ...form.hours, [d]: s } })}
-            />
-          ))}
-        </Grid>
+        <SwitchRow
+          label={t('admin.store.open24h')}
+          hint={t('admin.store.open24hHint')}
+          value={form.is_24h}
+          onChange={(is_24h) => setForm({ ...form, is_24h })}
+        />
+        {form.is_24h ? (
+          <View
+            style={{
+              padding: spacing.md,
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: radius.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}
+          >
+            <MaterialCommunityIcons name="check-circle-outline" size={20} color={colors.success} />
+            <Text variant="caption" weight="medium" style={{ flex: 1, color: colors.text }}>
+              {t('admin.store.open24hActive')}
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text variant="caption" color="textMuted">
+              {t('admin.store.hoursHint')}
+            </Text>
+            <Grid cols={2}>
+              {DAYS.map((d) => (
+                <TextField
+                  key={d}
+                  label={t(`admin.store.day_${d}`)}
+                  value={form.hours[d]}
+                  placeholder="07:00-22:30"
+                  error={textToHours(form.hours[d]) === null ? t('admin.store.badRange') : null}
+                  hint={form.hours[d].trim() ? undefined : t('admin.store.closedDay')}
+                  onChangeText={(s) => setForm({ ...form, hours: { ...form.hours, [d]: s } })}
+                />
+              ))}
+            </Grid>
+          </>
+        )}
       </Section>
       <Section icon="card-account-details-outline" title={t('admin.store.identity')}>
         <LocalizedInput

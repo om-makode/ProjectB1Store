@@ -8,6 +8,8 @@ import { radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { Badge, EmptyState, IconButton, Skeleton, Text } from '@/ui';
 
+import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
+
 import { useOpenIssues, useStaffAccess } from './hooks';
 
 /** Role guard for every store/ route: staff and admin only (the RPCs check it again). */
@@ -45,12 +47,29 @@ const TABS: { href: Href; path: string; key: 'board' | 'stock' | 'issues' | 'sto
 ];
 
 /** Top bar for Store mode: works the same on a phone, a tablet and the counter laptop. */
-export function StoreNav({ right }: { right?: ReactNode }) {
+export function StoreNav({
+  right,
+  hasUnsavedChanges = false,
+}: {
+  right?: ReactNode;
+  hasUnsavedChanges?: boolean;
+}) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const pathname = usePathname();
   const issues = useOpenIssues();
   const openIssues = issues.data?.length ?? 0;
+  const { promptDiscard } = useUnsavedChanges(hasUnsavedChanges);
+
+  const confirmNav = (nav: () => void) => {
+    if (!hasUnsavedChanges) {
+      nav();
+      return;
+    }
+    void promptDiscard().then((ok) => {
+      if (ok) nav();
+    });
+  };
 
   return (
     <View
@@ -64,7 +83,7 @@ export function StoreNav({ right }: { right?: ReactNode }) {
         <IconButton
           icon="arrow-left"
           accessibilityLabel={t('storeOps.backToShop')}
-          onPress={() => router.replace('/account')}
+          onPress={() => confirmNav(() => router.replace('/account'))}
         />
         <Text variant="title" style={{ flex: 1 }} accessibilityRole="header">
           {t('storeOps.title')}
@@ -87,7 +106,7 @@ export function StoreNav({ right }: { right?: ReactNode }) {
               key={tab.key}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              onPress={() => router.replace(tab.href)}
+              onPress={() => confirmNav(() => router.replace(tab.href))}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',

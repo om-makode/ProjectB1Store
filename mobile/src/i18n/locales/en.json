@@ -13,7 +13,11 @@
     "loading": "Loading…",
     "seeAll": "See all",
     "continue": "Continue",
-    "back": "Back"
+    "back": "Back",
+    "unsavedChangesTitle": "Unsaved changes",
+    "unsavedChangesBody": "You have unsaved changes. Please save your changes before going back.",
+    "discard": "Discard",
+    "keepEditing": "Keep editing"
   },
   "onboarding": {
     "chooseLanguage": "Choose your language",
@@ -626,6 +630,13 @@
       "customer_request": "Customer asked to remove"
     },
     "unavailableDone": "Item removed. The customer was told the new total.",
+    "cancelItemByCustomer": "Cancel item by customer",
+    "cancelItemTitle": "Customer cancelled item",
+    "cancelItemConfirmHint": "Mark this item as cancelled by customer? The item will be removed and the order total will be recalculated.",
+    "confirmCancelItem": "Cancel item",
+    "itemCancelledSuccess": "Item cancelled. Total recalculated.",
+    "cancelledByCustomer": "Cancelled by customer",
+    "outForDeliveryHint": "Tap red ✕ next to any item rejected by the customer.",
     "printPickList": "Print pick list",
     "printInvoice": "Print invoice",
     "paper": "Paper",
@@ -695,6 +706,7 @@
       "busyMessage": "Busy message for customers (optional)",
       "busyPlaceholder": "e.g. Heavy rain, deliveries may be late",
       "eta": "Delivery time shown to customers (minutes)",
+      "etaZeroHint": "Set to 0 to hide delivery time on the customer home screen.",
       "save": "Save",
       "saved": "Store updated",
       "pausedBanner": "Orders are paused",
@@ -724,7 +736,7 @@
       "ORDER_FINAL": "This order is already finished.",
       "STOCK_NEGATIVE": "Stock can't go below 0.",
       "INVALID_QUANTITY": "Enter a valid quantity for this reason.",
-      "INVALID_ETA": "Delivery time must be between 5 and 180 minutes.",
+      "INVALID_ETA": "Delivery time must be between 0 and 240 minutes.",
       "INVALID_REASON": "Please enter a reason.",
       "generic": "Couldn't save. Try again."
     },
@@ -742,6 +754,7 @@
       "usbScannerHint": "Tip: a USB barcode scanner types into this box. Scan and the item shows up.",
       "tapToPause": "Tap to pause orders",
       "tapToOpen": "Tap to start taking orders",
+      "etaZeroChip": "0 min (hide)",
       "etaChip": "{{minutes}} min",
       "etaCustom": "Other (min)",
       "busyPresets": {
@@ -1129,6 +1142,11 @@
       "day_sun": "Sunday",
       "badRange": "Use HH:MM-HH:MM, separated by commas",
       "closedDay": "Closed",
+      "open24h": "Open 24 hours",
+      "open24hHint": "Store remains open 24/7 without daily closing hours",
+      "open24hActive": "Store is open 24/7. Turn off this switch to set specific hours per day.",
+      "errEta": "ETA must be 0–240 minutes",
+      "errMaxOpenOrders": "Open orders per customer must be 1–10",
       "identity": "Store details",
       "name": "Store name",
       "address": "Store address",

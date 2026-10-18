@@ -20,6 +20,8 @@ export type ButtonProps = {
   fullWidth?: boolean;
   accessibilityHint?: string;
   testID?: string;
+  textColor?: ColorName;
+  borderColor?: ColorName;
 };
 
 const look: Record<Variant, { bg: ColorName | 'transparent'; fg: ColorName; border?: ColorName }> =
@@ -41,11 +43,14 @@ export function Button({
   fullWidth,
   accessibilityHint,
   testID,
+  textColor,
+  borderColor,
 }: ButtonProps) {
   const { colors } = useTheme();
   const l = look[variant];
   const inactive = disabled || loading;
-  const fg = variant === 'danger' ? '#FFFFFF' : colors[l.fg];
+  const fg = textColor ? colors[textColor] : variant === 'danger' ? '#FFFFFF' : colors[l.fg];
+  const border = borderColor ? colors[borderColor] : l.border ? colors[l.border] : 'transparent';
 
   return (
     <Pressable
@@ -64,7 +69,7 @@ export function Button({
         {
           minHeight: size === 'lg' ? 56 : minTouch,
           backgroundColor: l.bg === 'transparent' ? 'transparent' : colors[l.bg],
-          borderColor: l.border ? colors[l.border] : 'transparent',
+          borderColor: border,
           opacity: inactive ? 0.5 : pressed ? 0.85 : 1,
           alignSelf: fullWidth ? 'stretch' : 'auto',
         },

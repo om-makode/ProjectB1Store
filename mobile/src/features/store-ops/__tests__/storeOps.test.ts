@@ -35,6 +35,8 @@ describe('staff errors', () => {
     const e = { message: 'ITEMS_NOT_PICKED', code: 'P0001' };
     expect(staffErrorCode(e)).toBe('ITEMS_NOT_PICKED');
     expect(staffErrorMessage(e)).toMatch(/Pick every item/);
+    expect(staffErrorMessage({ message: 'INVALID_ETA', code: 'P0001' })).toMatch(/between 0 and 240/i);
+    expect(staffErrorMessage({ message: 'ORDER_LOCKED', code: 'P0001' })).toMatch(/can't be changed/i);
     expect(staffErrorMessage({ message: 'weird', code: 'XX000' })).toMatch(/Couldn't save/);
     expect(staffErrorMessage(new TypeError('Network request failed'))).toMatch(/internet/);
   });

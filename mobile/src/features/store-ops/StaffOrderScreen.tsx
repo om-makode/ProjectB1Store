@@ -11,6 +11,7 @@ import type { OrderDetail, OrderItem } from '@/features/orders/api';
 import { useOrderDetail } from '@/features/orders/hooks';
 import { asLocalized, useLocalize } from '@/i18n/localize';
 import { formatDateTime, formatPrice } from '@/lib/format';
+import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { useSettings } from '@/stores/settings';
 import { radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -62,14 +63,18 @@ function mapsUrl(o: OrderDetail): string {
 function ItemRow({
   item,
   canPick,
+  isOutForDelivery,
   onToggle,
   onUnavailable,
+  onCancelByCustomer,
   busy,
 }: {
   item: OrderItem;
   canPick: boolean;
+  isOutForDelivery: boolean;
   onToggle: () => void;
   onUnavailable: () => void;
+  onCancelByCustomer: () => void;
   busy: boolean;
 }) {
   const { t } = useTranslation();
@@ -123,7 +128,7 @@ function ItemRow({
             {label ? `${label} · ` : ''}
             {formatPrice(Number(item.price))}
           </Text>
-          {gone ? <Badge label={t('order.unavailable')} tone="warning" /> : null}
+          {gone ? <Badge label={t('order.unavailable')} tone="danger" /> : null}
         </View>
         <View
           style={{
@@ -152,6 +157,28 @@ function ItemRow({
           onPress={onUnavailable}
         />
       ) : null}
+      {!gone && isOutForDelivery ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('storeOps.cancelItemByCustomer')}
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={onCancelByCustomer}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            width: 38,
+            height: 38,
+            borderRadius: radius.full,
+            backgroundColor: colors.dangerSoft,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: busy ? 0.4 : pressed ? 0.7 : 1,
+            marginLeft: spacing.xs,
+          })}
+        >
+          <MaterialCommunityIcons name="close" size={22} color={colors.danger} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -160,7 +187,11 @@ function ItemRow({
 function StaffNoteCard({ order, onError }: { order: OrderDetail; onError: (e: unknown) => void }) {
   const { t } = useTranslation();
   const [note, setNote] = useState(order.staff_note ?? '');
+  const [savedNote, setSavedNote] = useState(order.staff_note ?? '');
   const saveNote = useStaffAction(setOrderNote);
+  const isDirty = note !== savedNote;
+  useUnsavedChanges(isDirty);
+
   return (
     <Card>
       <View style={{ gap: spacing.sm }}>
@@ -175,10 +206,13 @@ function StaffNoteCard({ order, onError }: { order: OrderDetail; onError: (e: un
           title={t('storeOps.saveNote')}
           variant="ghost"
           loading={saveNote.isPending}
-          disabled={note === (order.staff_note ?? '')}
+          disabled={!isDirty}
           onPress={() =>
             saveNote.mutate([order.id, note], {
-              onSuccess: () => showToast(t('storeOps.noteSaved'), 'success'),
+              onSuccess: () => {
+                setSavedNote(note);
+                showToast(t('storeOps.noteSaved'), 'success');
+              },
               onError,
             })
           }
@@ -202,6 +236,7 @@ function nextLabel(from: OrderStatus, to: OrderStatus, t: TFunction) {
 export function StaffOrderScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const l = useLocalize();
   const lang = useSettings((s) => s.language);
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useOrderDetail(id);
@@ -212,6 +247,7 @@ export function StaffOrderScreen() {
   const { paper, setPaper } = useStoreMode();
 
   const [unavailableFor, setUnavailableFor] = useState<OrderItem | null>(null);
+  const [customerCancelItem, setCustomerCancelItem] = useState<OrderItem | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const now = useNow(order?.status === 'placed');
@@ -246,6 +282,7 @@ export function StaffOrderScreen() {
   const phone = str(a.receiver_phone);
   const final = order.status === 'delivered' || order.status === 'cancelled';
   const canPick = order.status === 'confirmed' || order.status === 'packing';
+  const isOutForDelivery = order.status === 'out_for_delivery';
   const nexts = nextOf(order.status);
   const active = order.order_items.filter((i) => i.status === 'active');
   const allPicked = active.length > 0 && active.every((i) => i.picked);
@@ -369,16 +406,22 @@ export function StaffOrderScreen() {
               tone={allPicked ? 'success' : 'primary'}
             />
             <Text variant="caption" color="textMuted">
-              {order.status === 'placed' ? t('storeOps.acceptFirst') : t('storeOps.pickHint')}
+              {isOutForDelivery
+                ? t('storeOps.outForDeliveryHint')
+                : order.status === 'placed'
+                  ? t('storeOps.acceptFirst')
+                  : t('storeOps.pickHint')}
             </Text>
             {order.order_items.map((i) => (
               <ItemRow
                 key={i.id}
                 item={i}
                 canPick={canPick}
-                busy={pick.isPending}
+                isOutForDelivery={isOutForDelivery}
+                busy={pick.isPending || unavailable.isPending}
                 onToggle={() => pick.mutate([i.id, !i.picked], { onError })}
                 onUnavailable={() => setUnavailableFor(i)}
+                onCancelByCustomer={() => setCustomerCancelItem(i)}
               />
             ))}
             <View
@@ -518,6 +561,74 @@ export function StaffOrderScreen() {
             />
           ))}
         </View>
+      </Sheet>
+
+      <Sheet
+        visible={!!customerCancelItem}
+        onClose={() => setCustomerCancelItem(null)}
+        title={t('storeOps.cancelItemTitle')}
+      >
+        {customerCancelItem ? (
+          <View style={{ gap: spacing.md }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.md,
+                padding: spacing.sm,
+                borderRadius: radius.md,
+                backgroundColor: colors.surfaceAlt,
+              }}
+            >
+              <ProductImage
+                path={customerCancelItem.image_path}
+                name={l(asLocalized(customerCancelItem.name_snapshot))}
+                size={52}
+              />
+              <View style={{ flex: 1, gap: spacing.xs }}>
+                <Text weight="bold">{l(asLocalized(customerCancelItem.name_snapshot))}</Text>
+                {customerCancelItem.variant_label_snapshot ? (
+                  <Text variant="caption" color="textMuted">
+                    {l(asLocalized(customerCancelItem.variant_label_snapshot))}
+                  </Text>
+                ) : null}
+                <Text weight="semibold" color="primary">
+                  {customerCancelItem.quantity} × {formatPrice(Number(customerCancelItem.price))} ={' '}
+                  {formatPrice(
+                    Number(customerCancelItem.price) * customerCancelItem.quantity,
+                  )}
+                </Text>
+              </View>
+            </View>
+
+            <Text color="textMuted">{t('storeOps.cancelItemConfirmHint')}</Text>
+
+            <Button
+              title={t('storeOps.confirmCancelItem')}
+              variant="danger"
+              loading={unavailable.isPending}
+              disabled={unavailable.isPending}
+              fullWidth
+              onPress={() => {
+                if (!customerCancelItem) return;
+                unavailable.mutate([customerCancelItem.id, 'customer_request'], {
+                  onSuccess: () => {
+                    showToast(t('storeOps.itemCancelledSuccess'), 'success');
+                    setCustomerCancelItem(null);
+                  },
+                  onError,
+                });
+              }}
+            />
+            <Button
+              title={t('common.cancel')}
+              variant="ghost"
+              disabled={unavailable.isPending}
+              fullWidth
+              onPress={() => setCustomerCancelItem(null)}
+            />
+          </View>
+        ) : null}
       </Sheet>
 
       <Sheet

@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, usePathname, type Href } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, Switch, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { useStaffAccess } from '@/features/store-ops/hooks';
 import type { LocalizedString } from '@/i18n/localize';
 import { catalogImageUrl } from '@/lib/images';
 import { goBack } from '@/lib/navigation';
+import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import {
@@ -88,7 +89,13 @@ const isActive = (match: string, pathname: string) =>
   match === '/admin' ? pathname === '/admin' || pathname === '/admin/' : pathname.startsWith(match);
 
 /** Left navigation for laptop / tablet widths. */
-function Sidebar({ pathname }: { pathname: string }) {
+function Sidebar({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate?: (nav: () => void) => void;
+}) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   return (
@@ -138,7 +145,9 @@ function Sidebar({ pathname }: { pathname: string }) {
               key={n.key}
               accessibilityRole="menuitem"
               accessibilityState={{ selected: active }}
-              onPress={() => router.replace(n.href)}
+              onPress={() =>
+                onNavigate ? onNavigate(() => router.replace(n.href)) : router.replace(n.href)
+              }
               style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -185,7 +194,11 @@ function Sidebar({ pathname }: { pathname: string }) {
           <Pressable
             key={href}
             accessibilityRole="link"
-            onPress={() => router.replace(href as Href)}
+            onPress={() =>
+              onNavigate
+                ? onNavigate(() => router.replace(href as Href))
+                : router.replace(href as Href)
+            }
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -217,6 +230,7 @@ export function AdminShell({
   footer,
   scroll = true,
   back,
+  hasUnsavedChanges = false,
 }: {
   title: string;
   /** One line under the page title (what this page is for). */
@@ -228,11 +242,23 @@ export function AdminShell({
   footer?: ReactNode;
   scroll?: boolean;
   back?: Href;
+  hasUnsavedChanges?: boolean;
 }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const pathname = usePathname();
   const wide = useWide();
+  const { promptDiscard } = useUnsavedChanges(hasUnsavedChanges);
+
+  const confirmNav = (nav: () => void) => {
+    if (!hasUnsavedChanges) {
+      nav();
+      return;
+    }
+    void promptDiscard().then((ok) => {
+      if (ok) nav();
+    });
+  };
 
   const pageHeader = wide ? (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' }}>
@@ -240,7 +266,7 @@ export function AdminShell({
         <IconButton
           icon="arrow-left"
           accessibilityLabel={t('common.back')}
-          onPress={() => router.replace(back)}
+          onPress={() => confirmNav(() => router.replace(back))}
         />
       ) : null}
       <View style={{ flex: 1, minWidth: 220 }}>
@@ -327,7 +353,7 @@ export function AdminShell({
         edges={['top']}
         style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.background }}
       >
-        <Sidebar pathname={pathname} />
+        <Sidebar pathname={pathname} onNavigate={confirmNav} />
         {content}
       </SafeAreaView>
     );
@@ -346,7 +372,7 @@ export function AdminShell({
           <IconButton
             icon="arrow-left"
             accessibilityLabel={t('common.back')}
-            onPress={() => (back ? router.replace(back) : goBack('/account'))}
+            onPress={() => confirmNav(() => (back ? router.replace(back) : goBack('/account')))}
           />
           <Text variant="title" style={{ flex: 1 }} numberOfLines={1} accessibilityRole="header">
             {title}
@@ -369,7 +395,7 @@ export function AdminShell({
                 key={n.key}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                onPress={() => router.replace(n.href)}
+                onPress={() => confirmNav(() => router.replace(n.href))}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -730,33 +756,49 @@ export function ErrorList({ message }: { message: string | null }) {
   );
 }
 
-/** Number text field that keeps the typed string and reports a parsed number (or null). */
+/** Number text field that keeps the typed string, syncs with external updates, and reports a parsed number (or null). */
 export function NumberField({
   label,
   value,
   onChange,
   hint,
   error,
+  integerOnly = false,
 }: {
   label: string;
   value: number | null | undefined;
   onChange: (v: number | null) => void;
   hint?: string;
   error?: string | null;
+  integerOnly?: boolean;
 }) {
   const [text, setText] = useState(value === null || value === undefined ? '' : String(value));
+
+  useEffect(() => {
+    const currentNum = text.trim() === '' ? null : Number(text.replace(',', '.'));
+    const propNum = value === null || value === undefined ? null : value;
+    if (currentNum !== propNum) {
+      setText(propNum === null ? '' : String(propNum));
+    }
+  }, [value, text]);
+
   return (
     <TextField
       label={label}
       value={text}
-      keyboardType="decimal-pad"
-      inputMode="decimal"
+      keyboardType={integerOnly ? 'number-pad' : 'decimal-pad'}
+      inputMode={integerOnly ? 'numeric' : 'decimal'}
       hint={hint}
       error={error}
       onChangeText={(s) => {
-        setText(s);
-        const n = Number(s.replace(',', '.'));
-        onChange(s.trim() === '' || !Number.isFinite(n) ? null : n);
+        const clean = integerOnly ? s.replace(/[^0-9]/g, '') : s;
+        setText(clean);
+        if (clean.trim() === '') {
+          onChange(null);
+        } else {
+          const n = integerOnly ? parseInt(clean, 10) : Number(clean.replace(',', '.'));
+          onChange(!Number.isFinite(n) ? null : n);
+        }
       }}
     />
   );

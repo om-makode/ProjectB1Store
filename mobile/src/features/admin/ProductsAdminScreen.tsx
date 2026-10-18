@@ -10,10 +10,20 @@ import { formatPrice } from '@/lib/format';
 import { catalogImageUrl } from '@/lib/images';
 import { radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-import { Badge, Button, Chip, EmptyState, ErrorState, Skeleton, Text, TextField } from '@/ui';
+import {
+  Badge,
+  Button,
+  Chip,
+  EmptyState,
+  ErrorState,
+  IconButton,
+  Skeleton,
+  Text,
+  TextField,
+} from '@/ui';
 
 import type { AdminProductListItem, CategoryRow } from './api';
-import { AdminShell, ChoiceRow } from './components';
+import { AdminShell, ChoiceRow, useWide } from './components';
 import { fieldsOf, useAdminCategories, useAdminProducts } from './hooks';
 import { effectiveAdminFields } from './schema';
 
@@ -34,6 +44,7 @@ export function ProductsAdminScreen() {
   const { t } = useTranslation();
   const l = useLocalize();
   const { colors } = useTheme();
+  const wide = useWide();
   const cats = useAdminCategories();
   const [q, setQ] = useState('');
   const [parentId, setParentId] = useState<number | null>(null);
@@ -58,21 +69,57 @@ export function ProductsAdminScreen() {
       title={t('admin.nav.products')}
       subtitle={t('admin.ui.productsSubtitle')}
       actions={
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <Button
-            title={t('admin.prod.import')}
-            icon="file-delimited-outline"
-            variant="secondary"
-            onPress={() => router.push('/admin/products/import' as Href)}
-          />
-          <Button
-            title={t('admin.prod.new')}
-            icon="plus"
-            onPress={() => router.push(editHref('new=1'))}
-          />
-        </View>
+        wide ? (
+          <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+            <Button
+              title={t('admin.prod.import')}
+              icon="file-delimited-outline"
+              variant="secondary"
+              onPress={() => router.push('/admin/products/import' as Href)}
+            />
+            <Button
+              title={t('admin.prod.new')}
+              icon="plus"
+              onPress={() => router.push(editHref('new=1'))}
+            />
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <IconButton
+              icon="file-delimited-outline"
+              accessibilityLabel={t('admin.prod.import')}
+              onPress={() => router.push('/admin/products/import' as Href)}
+            />
+            <IconButton
+              icon="plus"
+              accessibilityLabel={t('admin.prod.new')}
+              onPress={() => router.push(editHref('new=1'))}
+            />
+          </View>
+        )
       }
     >
+      {!wide ? (
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <Button
+              title={t('admin.prod.new')}
+              icon="plus"
+              fullWidth
+              onPress={() => router.push(editHref('new=1'))}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              title={t('admin.prod.import')}
+              icon="file-delimited-outline"
+              variant="secondary"
+              fullWidth
+              onPress={() => router.push('/admin/products/import' as Href)}
+            />
+          </View>
+        </View>
+      ) : null}
       <TextField
         label={t('admin.prod.search')}
         value={q}

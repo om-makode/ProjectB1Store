@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -142,6 +142,11 @@ function CategoryEditor({
   const l = useLocalize();
   const refresh = useRefreshCatalog();
   const [form, setForm] = useState<Form>(initial);
+  const [savedForm, setSavedForm] = useState<Form>(initial);
+  const isDirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(savedForm),
+    [form, savedForm],
+  );
   const [slugTouched, setSlugTouched] = useState(!!id);
   const [editing, setEditing] = useState<{ index: number | null; field: AdminField } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -181,6 +186,7 @@ function CategoryEditor({
         attribute_schema: { fields: form.fields } as unknown as Json,
         filters: form.filters as unknown as Json,
       });
+      setSavedForm(form);
       refresh();
       showToast(t('admin.saved'), 'success');
       if (!id) router.replace(`/admin/categories/edit?id=${row.id}` as Href);
@@ -205,6 +211,7 @@ function CategoryEditor({
     <AdminShell
       title={id ? l(form.name) || t('admin.cat.edit') : t('admin.cat.new')}
       back={'/admin/categories' as Href}
+      hasUnsavedChanges={isDirty}
       actions={
         <Button
           title={t('admin.save')}
@@ -369,6 +376,7 @@ function CategoryEditor({
         visible={!!editing}
         onClose={() => setEditing(null)}
         title={editing?.index === null ? t('admin.schema.addField') : t('admin.schema.editField')}
+        scroll
       >
         {editing ? (
           <FieldForm

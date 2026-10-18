@@ -96,7 +96,6 @@ export function ReportScreen({ name }: { name: ReportName }) {
     <AdminShell
       title={t(`admin.reports.${name}`)}
       subtitle={t(`admin.reports.${name}_hint`)}
-      scroll={false}
     >
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {REPORTS.map((r) => (
@@ -122,11 +121,14 @@ export function ReportScreen({ name }: { name: ReportName }) {
             borderColor: colors.border,
             overflow: 'hidden',
             backgroundColor: colors.surface,
-            flexShrink: 1,
           }}
         >
-          <ScrollView horizontal style={{ flexGrow: 0 }}>
-            <ScrollView style={{ maxHeight: 640 }} stickyHeaderIndices={[0]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={true}
+            contentContainerStyle={{ flexGrow: 1 }}
+          >
+            <View style={{ minWidth: cols.length * 150 }}>
               <View
                 style={{
                   flexDirection: 'row',
@@ -136,21 +138,29 @@ export function ReportScreen({ name }: { name: ReportName }) {
                 }}
               >
                 {cols.map((c) => (
-                  <Text
+                  <View
                     key={c.key}
-                    variant="caption"
-                    weight="bold"
-                    color="textMuted"
-                    align={c.kind === 'money' || c.kind === 'num' ? 'right' : 'left'}
                     style={{
-                      width: 160,
+                      width: 150,
+                      flexShrink: 0,
                       paddingHorizontal: spacing.md,
                       paddingVertical: spacing.sm,
-                      textTransform: 'uppercase',
+                      justifyContent: 'center',
+                      alignItems:
+                        c.kind === 'money' || c.kind === 'num' ? 'flex-end' : 'flex-start',
                     }}
                   >
-                    {t(`admin.cols.${c.key}` as 'admin.cols.day')}
-                  </Text>
+                    <Text
+                      variant="caption"
+                      weight="bold"
+                      color="textMuted"
+                      align={c.kind === 'money' || c.kind === 'num' ? 'right' : 'left'}
+                      style={{ textTransform: 'uppercase' }}
+                      numberOfLines={1}
+                    >
+                      {t(`admin.cols.${c.key}` as 'admin.cols.day')}
+                    </Text>
+                  </View>
                 ))}
               </View>
               {(q.data as Record<string, unknown>[]).map((row, i) => (
@@ -164,23 +174,30 @@ export function ReportScreen({ name }: { name: ReportName }) {
                   }}
                 >
                   {cols.map((c) => (
-                    <Text
+                    <View
                       key={c.key}
-                      align={c.kind === 'money' || c.kind === 'num' ? 'right' : 'left'}
-                      weight={c.kind === 'money' ? 'semibold' : undefined}
                       style={{
-                        width: 160,
+                        width: 150,
+                        flexShrink: 0,
                         paddingHorizontal: spacing.md,
                         paddingVertical: spacing.sm,
+                        justifyContent: 'center',
+                        alignItems:
+                          c.kind === 'money' || c.kind === 'num' ? 'flex-end' : 'flex-start',
                       }}
-                      numberOfLines={2}
                     >
-                      {cell(row, c)}
-                    </Text>
+                      <Text
+                        align={c.kind === 'money' || c.kind === 'num' ? 'right' : 'left'}
+                        weight={c.kind === 'money' ? 'semibold' : undefined}
+                        numberOfLines={2}
+                      >
+                        {cell(row, c)}
+                      </Text>
+                    </View>
                   ))}
                 </View>
               ))}
-            </ScrollView>
+            </View>
           </ScrollView>
         </View>
       )}

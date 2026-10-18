@@ -14,8 +14,8 @@ import type { LoginReason } from './useRequireLogin';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESEND_SECONDS = 60;
-/** Password login for test accounts: development builds only, and only when enabled in .env. */
-const PASSWORD_LOGIN = __DEV__ && envResult.ok && envResult.env.devPasswordLogin;
+/** Password login for test accounts: enabled when devPasswordLogin is true in .env. */
+const PASSWORD_LOGIN = envResult.ok && envResult.env.devPasswordLogin;
 const REASONS: LoginReason[] = [
   'checkout',
   'wishlist',

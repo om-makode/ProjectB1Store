@@ -107,7 +107,6 @@ function ProfileCard() {
   const { t } = useTranslation();
   const session = useAuth((s) => s.session);
   const profile = useMyProfile();
-  const [busy, setBusy] = useState<'logout' | 'delete' | null>(null);
   const go = (href: Href) => router.push(href);
 
   if (!session) {
@@ -127,45 +126,6 @@ function ProfileCard() {
       </Card>
     );
   }
-
-  const logout = async () => {
-    setBusy('logout');
-    try {
-      await signOut();
-      showToast(t('account.loggedOut'));
-    } catch {
-      showToast(t('errors.server'), 'danger');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const confirmDelete = async () => {
-    const ok = await confirmAction(
-      t('account.deleteTitle'),
-      t('account.deleteBody'),
-      t('account.deleteConfirm'),
-      t('common.cancel'),
-    );
-    if (!ok) return;
-    setBusy('delete');
-    try {
-      await deleteMyAccount();
-      showToast(t('account.deleted'));
-    } catch (e) {
-      const err = toAppError(e);
-      showToast(
-        err.message.includes('ACTIVE_ORDERS_EXIST')
-          ? t('account.activeOrders')
-          : err.kind === 'network'
-            ? t('errors.network')
-            : t('errors.server'),
-        'danger',
-      );
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const name = profile.data?.full_name?.trim();
   const email = session.user.email ?? '';
@@ -231,23 +191,6 @@ function ProfileCard() {
           ]}
         />
       ) : null}
-
-      <View style={{ gap: spacing.xs }}>
-        <Button
-          title={t('account.logout')}
-          icon="logout"
-          variant="secondary"
-          onPress={logout}
-          loading={busy === 'logout'}
-          fullWidth
-        />
-        <Button
-          title={t('account.deleteAccount')}
-          variant="ghost"
-          onPress={confirmDelete}
-          loading={busy === 'delete'}
-        />
-      </View>
     </View>
   );
 }
@@ -312,6 +255,75 @@ function ProfileHeader({
   );
 }
 
+function AccountDangerActions() {
+  const { t } = useTranslation();
+  const session = useAuth((s) => s.session);
+  const [busy, setBusy] = useState<'logout' | 'delete' | null>(null);
+
+  if (!session) return null;
+
+  const logout = async () => {
+    setBusy('logout');
+    try {
+      await signOut();
+      showToast(t('account.loggedOut'));
+    } catch {
+      showToast(t('errors.server'), 'danger');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    const ok = await confirmAction(
+      t('account.deleteTitle'),
+      t('account.deleteBody'),
+      t('account.deleteConfirm'),
+      t('common.cancel'),
+    );
+    if (!ok) return;
+    setBusy('delete');
+    try {
+      await deleteMyAccount();
+      showToast(t('account.deleted'));
+    } catch (e) {
+      const err = toAppError(e);
+      showToast(
+        err.message.includes('ACTIVE_ORDERS_EXIST')
+          ? t('account.activeOrders')
+          : err.kind === 'network'
+            ? t('errors.network')
+            : t('errors.server'),
+        'danger',
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <Button
+        title={t('account.logout')}
+        icon="logout"
+        variant="secondary"
+        onPress={logout}
+        loading={busy === 'logout'}
+        fullWidth
+      />
+      <Button
+        title={t('account.deleteAccount')}
+        icon="trash-can-outline"
+        variant="ghost"
+        textColor="danger"
+        onPress={confirmDelete}
+        loading={busy === 'delete'}
+        fullWidth
+      />
+    </View>
+  );
+}
+
 export function AccountScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -324,22 +336,6 @@ export function AccountScreen() {
       </Text>
 
       <ProfileCard />
-
-      <MenuGroup
-        title={t('account.groupHelp')}
-        items={[
-          {
-            icon: 'help-circle-outline',
-            label: t('account.help'),
-            onPress: () => router.push('/account/help'),
-          },
-          {
-            icon: 'scale-balance',
-            label: t('legal.title'),
-            onPress: () => router.push('/account/legal'),
-          },
-        ]}
-      />
 
       <Text variant="title" accessibilityRole="header">
         {t('settings.language')}
@@ -381,6 +377,24 @@ export function AccountScreen() {
           </View>
         </View>
       </Card>
+
+      <MenuGroup
+        title={t('account.groupHelp')}
+        items={[
+          {
+            icon: 'help-circle-outline',
+            label: t('account.help'),
+            onPress: () => router.push('/account/help'),
+          },
+          {
+            icon: 'scale-balance',
+            label: t('legal.title'),
+            onPress: () => router.push('/account/legal'),
+          },
+        ]}
+      />
+
+      <AccountDangerActions />
 
       <Text variant="caption" color="textMuted" align="center">
         {t('account.version', { version: Constants.expoConfig?.version ?? '0.1.0' })}

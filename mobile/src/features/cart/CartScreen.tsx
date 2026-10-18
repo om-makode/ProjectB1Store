@@ -128,7 +128,7 @@ export function CartScreen() {
               ) : null}
 
               <Card style={{ gap: spacing.lg }}>
-                {store.data?.is_open ? (
+                {store.data?.is_open && (store.data?.eta_minutes ?? 0) > 0 ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <View
                       style={{

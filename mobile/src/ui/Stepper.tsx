@@ -46,6 +46,7 @@ export function Stepper({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const h = size === 'sm' ? 34 : 44;
+  const minW = size === 'sm' ? 68 : 80;
   const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const prev = useRef(quantity);
@@ -77,6 +78,7 @@ export function Stepper({
         style={({ pressed }) => [
           styles.box,
           {
+            minWidth: minW,
             height: h,
             borderWidth: 1.5,
             borderColor: colors.primary,
@@ -102,7 +104,7 @@ export function Stepper({
       style={[
         styles.box,
         styles.row,
-        { height: h, backgroundColor: colors.primary },
+        { minWidth: minW, height: h, backgroundColor: colors.primary },
         shadow.sm,
         bump,
       ]}
@@ -150,7 +152,7 @@ export function Stepper({
 }
 
 const styles = StyleSheet.create({
-  box: { minWidth: 80, borderRadius: radius.md, paddingHorizontal: 4 },
+  box: { borderRadius: radius.md, paddingHorizontal: 4 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   side: { paddingHorizontal: 10, alignSelf: 'stretch', justifyContent: 'center' },
 });

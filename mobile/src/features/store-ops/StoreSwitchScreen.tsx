@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { asLocalized, localize } from '@/i18n/localize';
+import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { useSettings } from '@/stores/settings';
 import { radius, spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -15,25 +16,53 @@ import { staffErrorMessage } from './errors';
 import { useStaffAction, useStoreId, useStoreSettings } from './hooks';
 import { StoreNav } from './StoreGate';
 
-const ETA_PRESETS = [10, 20, 30, 45] as const;
+const ETA_PRESETS = [0, 10, 20, 30, 45] as const;
 const BUSY_PRESETS = ['rain', 'busy', 'staff'] as const;
 
-function StoreForm({ storeId, s }: { storeId: number; s: StoreSettings }) {
+function StoreForm({
+  storeId,
+  s,
+  onDirtyChange,
+}: {
+  storeId: number;
+  s: StoreSettings;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const lang = useSettings((x) => x.language);
   const save = useStaffAction(setStoreOpen);
+  const initialMessage = localize(asLocalized(s.busy_message), lang);
+  const initialEta = String(s.eta_minutes ?? '');
   const [accepting, setAccepting] = useState(s.is_accepting_orders);
-  const [message, setMessage] = useState(localize(asLocalized(s.busy_message), lang));
-  const [eta, setEta] = useState(String(s.eta_minutes ?? ''));
+  const [message, setMessage] = useState(initialMessage);
+  const [eta, setEta] = useState(initialEta);
+  const [savedMessage, setSavedMessage] = useState(initialMessage);
+  const [savedEta, setSavedEta] = useState(initialEta);
+
+  const isDirty = message !== savedMessage || eta !== savedEta;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useUnsavedChanges(isDirty);
 
   const submit = (nextAccepting = accepting) => {
     const text = message.trim();
     // Staff type one message; it's shown as-is in every language.
     const busy = text ? { en: text, mr: text, hi: text } : null;
     const etaNum = eta.trim() ? Number(eta) : null;
+    if (etaNum !== null && (etaNum < 0 || etaNum > 240)) {
+      showToast(t('storeOps.errors.INVALID_ETA'), 'danger');
+      return;
+    }
     save.mutate([storeId, nextAccepting, busy, etaNum], {
-      onSuccess: () => showToast(t('storeOps.store.saved'), 'success'),
+      onSuccess: () => {
+        setSavedMessage(message);
+        setSavedEta(eta);
+        showToast(t('storeOps.store.saved'), 'success');
+      },
       onError: (e) => {
         setAccepting(s.is_accepting_orders);
         showToast(staffErrorMessage(e), 'danger');
@@ -112,7 +141,11 @@ function StoreForm({ storeId, s }: { storeId: number; s: StoreSettings }) {
             {ETA_PRESETS.map((m) => (
               <Chip
                 key={m}
-                label={t('storeOps.ui.etaChip', { minutes: m })}
+                label={
+                  m === 0
+                    ? t('storeOps.ui.etaZeroChip')
+                    : t('storeOps.ui.etaChip', { minutes: m })
+                }
                 selected={eta === String(m)}
                 onPress={() => setEta(String(m))}
               />
@@ -124,9 +157,13 @@ function StoreForm({ storeId, s }: { storeId: number; s: StoreSettings }) {
                 onChangeText={(v) => setEta(v.replace(/\D/g, ''))}
                 keyboardType="number-pad"
                 maxLength={3}
+                placeholder="0–240"
               />
             </View>
           </View>
+          <Text variant="caption" color="textMuted">
+            {t('storeOps.store.etaZeroHint')}
+          </Text>
           <TextField
             label={t('storeOps.store.busyMessage')}
             placeholder={t('storeOps.store.busyPlaceholder')}
@@ -175,10 +212,11 @@ export function StoreSwitchScreen() {
   const storeId = useStoreId();
   const settings = useStoreSettings(storeId);
   const s = settings.data;
+  const [dirty, setDirty] = useState(false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      <StoreNav />
+      <StoreNav hasUnsavedChanges={dirty} />
       {settings.isPending ? (
         <View style={{ padding: spacing.lg, gap: spacing.md }}>
           <Skeleton width="100%" height={120} />
@@ -191,6 +229,7 @@ export function StoreSwitchScreen() {
           key={`${s.is_accepting_orders}-${s.eta_minutes}-${JSON.stringify(s.busy_message)}`}
           storeId={storeId}
           s={s}
+          onDirtyChange={setDirty}
         />
       )}
     </SafeAreaView>

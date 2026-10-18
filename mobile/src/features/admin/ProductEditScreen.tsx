@@ -228,6 +228,11 @@ function ProductEditor({
   const brands = useBrands();
   const refresh = useRefreshCatalog();
   const [form, setForm] = useState<Form>(initial);
+  const [savedForm, setSavedForm] = useState<Form>(initial);
+  const isDirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(savedForm),
+    [form, savedForm],
+  );
   const [slugTouched, setSlugTouched] = useState(!!id);
   const [error, setError] = useState<string | null>(null);
   const [attrErrors, setAttrErrors] = useState<Record<string, string>>({});
@@ -344,6 +349,7 @@ function ProductEditor({
     setSaving(true);
     try {
       const res = await upsertProduct(payload);
+      setSavedForm(form);
       refresh();
       showToast(t('admin.saved'), 'success');
       if (!id) router.replace(`/admin/products/edit?id=${res.product_id}` as Href);
@@ -381,6 +387,7 @@ function ProductEditor({
     <AdminShell
       title={id ? l(form.name) || t('admin.prod.edit') : t('admin.prod.new')}
       back={'/admin/products' as Href}
+      hasUnsavedChanges={isDirty}
       actions={
         <Button
           title={t('admin.save')}
