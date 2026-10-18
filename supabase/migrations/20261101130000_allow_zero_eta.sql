@@ -1,9 +1,12 @@
 -- =====================================================================
--- Allow eta_minutes to be 0 (e.g. to hide delivery time on Home Screen).
--- Also supports customer item cancellation in 'out_for_delivery'.
+-- 1. Allow eta_minutes to be 0 (e.g. to hide delivery time on Home Screen).
+-- 2. Configurable store theme_color (emerald, amber, yellow, purple, navy, slate).
+-- 3. Customer item cancellation in 'out_for_delivery'.
 -- =====================================================================
 
--- 1. Update check constraint on stores table (0–240 minutes)
+-- 1. Add theme_color column and update check constraint on stores table
+alter table public.stores add column if not exists theme_color text not null default 'emerald';
+
 do $$
 declare
   r record;
@@ -23,7 +26,7 @@ end $$;
 
 alter table public.stores add constraint stores_eta_minutes_check check (eta_minutes between 0 and 240);
 
--- 2. Update admin_update_store_settings to allow 0–240 minutes
+-- 2. Update admin_update_store_settings to allow 0–240 minutes and theme_color
 create or replace function public.admin_update_store_settings(p_store_id bigint, p_patch jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -71,7 +74,8 @@ begin
                     where btrim(x) <> ''), '{}'::text[])
                end,
     upi_enabled          = coalesce((p_patch->>'upi_enabled')::boolean, upi_enabled),
-    payment_hold_minutes = coalesce((p_patch->>'payment_hold_minutes')::int, payment_hold_minutes)
+    payment_hold_minutes = coalesce((p_patch->>'payment_hold_minutes')::int, payment_hold_minutes),
+    theme_color          = coalesce(p_patch->>'theme_color', theme_color)
   where id = p_store_id
   returning * into s;
 
@@ -112,6 +116,9 @@ begin
   if s.payment_hold_minutes not between 5 and 60 then
     raise exception 'payment hold must be 5–60 minutes' using errcode = '22023';
   end if;
+  if s.theme_color not in ('emerald', 'amber', 'yellow', 'purple', 'navy', 'slate') then
+    raise exception 'invalid theme_color' using errcode = '22023';
+  end if;
   if jsonb_typeof(s.opening_hours) <> 'object' then
     raise exception 'opening_hours must be an object of weekday → ranges' using errcode = '22023';
   end if;
@@ -133,7 +140,72 @@ $$;
 revoke execute on function public.admin_update_store_settings(bigint, jsonb) from public, anon;
 grant  execute on function public.admin_update_store_settings(bigint, jsonb) to authenticated;
 
--- 3. Update staff_set_store_open to allow 0–240 minutes
+-- 3. Update store_status to return theme_color
+create or replace function public.store_status(p_store_id bigint default null)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  s           public.stores;
+  v_local     timestamp;
+  v_day       date;
+  v_key       text;
+  v_slot      jsonb;
+  v_open_now  boolean := false;
+  v_opens_at  timestamptz;
+  v_closes_at timestamptz;
+begin
+  select * into s from public.stores
+   where id = coalesce(p_store_id, public.default_store_id()) and is_active;
+  if not found then return null; end if;
+
+  v_local := now() at time zone s.timezone;
+
+  if s.opening_hours = '{}'::jsonb then
+    v_open_now := true;
+  else
+    for d in 0..7 loop
+      v_day := v_local::date + d;
+      v_key := lower(to_char(v_day, 'dy'));
+      for v_slot in
+        select e.value from jsonb_array_elements(coalesce(s.opening_hours->v_key, '[]'::jsonb)) e
+         order by e.value->>'open'
+      loop
+        if d = 0 and v_local::time >= (v_slot->>'open')::time
+                 and v_local::time <  (v_slot->>'close')::time then
+          v_open_now  := true;
+          v_closes_at := (v_day + (v_slot->>'close')::time) at time zone s.timezone;
+        elsif v_opens_at is null and (v_day + (v_slot->>'open')::time) > v_local then
+          v_opens_at := (v_day + (v_slot->>'open')::time) at time zone s.timezone;
+        end if;
+      end loop;
+      exit when v_opens_at is not null;
+    end loop;
+  end if;
+
+  return jsonb_build_object(
+    'store_id',    s.id,
+    'name',        s.name,
+    'city',        s.city,
+    'phone',       s.phone,
+    'accepting',   s.is_accepting_orders,
+    'open_now',    v_open_now,
+    'is_open',     v_open_now and s.is_accepting_orders,
+    'opens_at',    v_opens_at,
+    'closes_at',   v_closes_at,
+    'eta_minutes', s.eta_minutes,
+    'message',     s.busy_message,
+    'theme_color', coalesce(s.theme_color, 'emerald'),
+    'fees', jsonb_build_object(
+      'min_order_value', s.min_order_value, 'delivery_fee', s.delivery_fee,
+      'free_delivery_above', s.free_delivery_above, 'small_cart_threshold', s.small_cart_threshold,
+      'small_cart_fee', s.small_cart_fee, 'packaging_fee', s.packaging_fee
+    )
+  );
+end;
+$$;
+revoke execute on function public.store_status(bigint) from public, anon;
+grant  execute on function public.store_status(bigint) to authenticated, anon;
+
+-- 4. Update staff_set_store_open to allow 0–240 minutes
 create or replace function public.staff_set_store_open(
   p_store_id bigint, p_accepting boolean, p_busy_message jsonb default null, p_eta_minutes int default null)
 returns public.stores
@@ -166,7 +238,7 @@ $$;
 revoke execute on function public.staff_set_store_open(bigint, boolean, jsonb, int) from public, anon;
 grant  execute on function public.staff_set_store_open(bigint, boolean, jsonb, int) to authenticated;
 
--- 4. Update staff_mark_item_unavailable to allow cancellation in 'packed' and 'out_for_delivery'
+-- 5. Update staff_mark_item_unavailable to allow cancellation in 'packed' and 'out_for_delivery'
 create or replace function public.staff_mark_item_unavailable(p_order_item_id bigint, p_reason text)
 returns public.orders
 language plpgsql
@@ -198,10 +270,6 @@ begin
 
   update public.order_items set status = 'unavailable', picked = false where id = p_order_item_id;
 
-  -- Stock: the order already took these units off the books when it was placed.
-  --   not_found        → the books were wrong: the shelf is empty, so set stock to 0 (log the gap)
-  --   customer_request → units go back on the shelf: +qty
-  --   damaged/expired  → units left the shelf and are binned: books are already right, no change
   if p_reason in ('not_found', 'customer_request') then
     select stock into v_stock from public.inventory
      where store_id = v_order.store_id and variant_id = v_item.variant_id for update;
@@ -227,11 +295,9 @@ begin
 
   select count(*) into v_active from public.order_items where order_id = v_order.id and status = 'active';
   if v_active = 0 then
-    -- Nothing left to deliver. The Phase 5 trigger tells the customer "store cancelled".
     return public._cancel_order_internal(v_order.id, 'all_items_unavailable', 'store', v_uid);
   end if;
 
-  -- Recalculate. Rule: fees NEVER go up because the store couldn't supply an item.
   with t as (
     select sum(i.line_total) as item_total, sum(i.mrp * i.quantity) as mrp_total
     from public.order_items i where i.order_id = v_order.id and i.status = 'active'

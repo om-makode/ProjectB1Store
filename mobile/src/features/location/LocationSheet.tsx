@@ -48,7 +48,7 @@ export function LocationSheet({ visible, onClose }: { visible: boolean; onClose:
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('location.chooseTitle')}>
+    <Sheet visible={visible} onClose={onClose} title={t('location.chooseTitle')} scroll>
       <View style={{ gap: spacing.md }}>
         <Button
           testID="location-gps"

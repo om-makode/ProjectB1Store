@@ -33,6 +33,8 @@ export type ProductCard = {
 export type ProductPage = { items: ProductCard[]; has_more: boolean; page: number };
 export type CollectionPage = ProductPage & { collection: CollectionTile };
 
+export type HeaderThemeKey = 'emerald' | 'amber' | 'yellow' | 'purple' | 'navy' | 'slate';
+
 export type StoreStatus = {
   store_id: number;
   name: LocalizedString;
@@ -45,6 +47,7 @@ export type StoreStatus = {
   closes_at: string | null;
   eta_minutes: number;
   message: LocalizedString | null;
+  theme_color?: HeaderThemeKey | null;
   fees: {
     min_order_value: number;
     delivery_fee: number;

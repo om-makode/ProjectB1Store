@@ -58,7 +58,7 @@ export function Sheet({ visible, onClose, title, children, scroll }: SheetProps)
           {scroll ? (
             <ScrollView
               style={{ flexShrink: 1 }}
-              contentContainerStyle={{ paddingBottom: spacing.md }}
+              contentContainerStyle={{ paddingBottom: spacing.xl }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={true}
             >
@@ -85,6 +85,7 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxHeight: '100%',
+    flexShrink: 1,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,

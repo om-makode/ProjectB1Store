@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 
 import { useStoreId } from '@/features/store-ops/hooks';
 import { asLocalized, type LocalizedString } from '@/i18n/localize';
@@ -21,6 +21,8 @@ import {
   Section,
   SwitchRow,
 } from './components';
+import { HEADER_THEMES, type HeaderThemeKey } from '@/features/catalog/components/StoreHeader';
+import { useSettings } from '@/stores/settings';
 import { useRefreshCatalog, useStoreRow } from './hooks';
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -55,6 +57,7 @@ type Form = {
   /** Delivery pincodes as typed: comma / space / newline separated. */
   pincodes: string;
   upi_enabled: boolean;
+  theme_color: HeaderThemeKey;
 };
 
 const DEFAULT_HOURS = '07:00-22:30';
@@ -80,6 +83,10 @@ const fromRow = (s: StoreRow): Form => {
     is_24h,
     pincodes: (s.serviceable_pincodes ?? []).join(', '),
     upi_enabled: !!s.upi_enabled,
+    theme_color:
+      (((s as unknown as Record<string, unknown>).theme_color as HeaderThemeKey) ||
+        useSettings.getState().headerTheme ||
+        'emerald'),
   };
 };
 
@@ -200,7 +207,9 @@ function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: For
         ...form.numbers,
         serviceable_pincodes: pincodes.ok,
         upi_enabled: form.upi_enabled,
+        theme_color: form.theme_color,
       })) as unknown as StoreRow;
+      useSettings.getState().setHeaderTheme(form.theme_color);
       const next = fromRow(updated);
       setForm(next);
       setSavedForm(next);
@@ -240,6 +249,63 @@ function StoreSettingsForm({ storeId, initial }: { storeId: number; initial: For
       }
     >
       <ErrorList message={err} />
+      <Section
+        icon="palette-outline"
+        title={t('admin.store.headerTheme', { defaultValue: 'Home Header Theme' })}
+      >
+        <Text variant="caption" color="textMuted">
+          {t('admin.store.headerThemeSubtitle', {
+            defaultValue: 'Choose the theme color shown at the top of the Home screen.',
+          })}
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: spacing.sm,
+            marginTop: spacing.xs,
+          }}
+        >
+          {Object.values(HEADER_THEMES).map((th) => {
+            const selected = form.theme_color === th.key;
+            return (
+              <Pressable
+                key={th.key}
+                onPress={() => setForm({ ...form, theme_color: th.key })}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: radius.lg,
+                  borderWidth: 2,
+                  borderColor: selected ? colors.primary : colors.border,
+                  backgroundColor: colors.surface,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: th.bg,
+                    borderWidth: 1,
+                    borderColor: 'rgba(0,0,0,0.12)',
+                  }}
+                />
+                <Text weight={selected ? 'bold' : 'regular'} style={{ color: colors.text }}>
+                  {t(`admin.store.theme_${th.key}`, { defaultValue: th.label })}
+                </Text>
+                {selected ? (
+                  <MaterialCommunityIcons name="check-circle" size={18} color={colors.primary} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Section>
       <Section icon="cash" title={t('admin.store.fees')}>
         <Text variant="caption" color="textMuted">
           {t('admin.store.feesHint')}

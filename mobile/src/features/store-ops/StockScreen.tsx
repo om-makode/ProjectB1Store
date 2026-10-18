@@ -184,7 +184,7 @@ function AdjustSheet({ row, onClose }: { row: StockRow | null; onClose: () => vo
   const onError = (e: unknown) => showToast(staffErrorMessage(e), 'danger');
 
   return (
-    <Sheet visible onClose={onClose} title={t('storeOps.stock.adjustTitle')}>
+    <Sheet visible onClose={onClose} title={t('storeOps.stock.adjustTitle')} scroll>
       <View style={{ gap: spacing.md }}>
         <Text weight="semibold">
           {l(asLocalized(row.product_name))} · {l(asLocalized(row.variant_label))}
@@ -294,7 +294,7 @@ function ReceiveSheet({ visible, onClose }: { visible: boolean; onClose: () => v
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('storeOps.stock.receiveTitle')}>
+    <Sheet visible={visible} onClose={onClose} title={t('storeOps.stock.receiveTitle')} scroll>
       <View style={{ gap: spacing.md }}>
         <Text color="textMuted">{t('storeOps.stock.receiveHint')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }}>

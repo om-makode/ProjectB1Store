@@ -323,6 +323,7 @@ function Banners() {
         visible={!!edit}
         onClose={() => setEdit(null)}
         title={edit?.id ? t('admin.merch.editBanner') : t('admin.merch.newBanner')}
+        scroll
       >
         {edit ? (
           <View style={{ gap: spacing.md }}>
@@ -548,6 +549,7 @@ function Sections() {
         visible={!!edit}
         onClose={() => setEdit(null)}
         title={edit?.id ? t('admin.merch.editSection') : t('admin.merch.newSection')}
+        scroll
       >
         {edit ? (
           <View style={{ gap: spacing.md }}>
@@ -795,6 +797,7 @@ function Collections() {
         visible={!!edit}
         onClose={() => setEdit(null)}
         title={edit?.id ? t('admin.merch.editCollection') : t('admin.merch.newCollection')}
+        scroll
       >
         {edit ? (
           <View style={{ gap: spacing.md }}>
